@@ -11,15 +11,18 @@ import http from 'http';
 async function connectToWhatsApp() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
-    // fetchLatestBaileysVersion normalmente retorna um array [major, minor, patch]
-    const version = await fetchLatestBaileysVersion();
-    console.log(`Usando a versão do WhatsApp Web: ${Array.isArray(version) ? version.join('.') : version}`);
+    // Tratamento robusto do retorno de fetchLatestBaileysVersion()
+    const latest = await fetchLatestBaileysVersion();
+    // latest pode ser um array [x,y,z] ou um objeto { version: [x,y,z], ... }
+    const version = Array.isArray(latest) ? latest : (latest?.version ?? latest);
+    console.log(`Usando a versão do WhatsApp Web: ${Array.isArray(version) ? version.join('.') : JSON.stringify(version)}`);
 
     const sock = makeWASocket({
         auth: state,
+        // Defina printQRInTerminal: true temporariamente se quiser ver o QR diretamente
         printQRInTerminal: false,
         logger: P({ level: 'silent' }),
-        version: version,
+        version: Array.isArray(version) ? version : undefined,
     });
 
     sock.ev.on('connection.update', (update) => {
@@ -29,12 +32,16 @@ async function connectToWhatsApp() {
             console.log('--- Escaneie o QR Code abaixo ---');
             qrcode.generate(qr, { small: true });
             console.log('---------------------------------');
+            console.log('Se estiver rodando neste mesmo celular, você precisa outro aparelho para escanear o QR.');
         }
 
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
             console.log('Conexão fechada. Tentando reconectar:', shouldReconnect);
-            if (shouldReconnect) connectToWhatsApp();
+            if (shouldReconnect) {
+                // esperar um pouco antes de reconectar para evitar loop rápido
+                setTimeout(() => connectToWhatsApp(), 5000);
+            }
         } else if (connection === 'open') {
             console.log('✅ Conectado com sucesso ao WhatsApp Web!');
         }
@@ -71,7 +78,7 @@ connectToWhatsApp().catch(err => {
     console.error('Erro ao conectar ao WhatsApp:', err);
 });
 
-// Pequeno servidor HTTP para ficar escutando a porta do Render (opcional, mas recomendado se você usar Web Service)
+// Pequeno servidor HTTP para ficar escutando a porta (útil no Render)
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
