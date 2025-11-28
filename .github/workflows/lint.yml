@@ -25,7 +25,7 @@ jobs:
         run: npm ci
 
       - name: 🔍 Run ESLint
-        run: npx eslint . --ext .js,.jsx,.ts,.tsx 2>/dev/null || true
+        run: npx eslint .  --ext .js,.jsx,.ts,.tsx 2>/dev/null || true
 
       - name: ✨ Check Prettier formatting
         run: npx prettier --check . 2>/dev/null || true
