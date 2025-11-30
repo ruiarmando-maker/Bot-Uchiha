@@ -1,5 +1,5 @@
 function ping() {
-  return "PONG";
+  return 'PONG';
 }
 
 module.exports = { ping };
